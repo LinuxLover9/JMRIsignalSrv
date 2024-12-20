@@ -1,0 +1,5 @@
+.pio
+.vscode
+src/SSID_access.h
+platformio.ini
+MQTT_HOserver01_schematic.png

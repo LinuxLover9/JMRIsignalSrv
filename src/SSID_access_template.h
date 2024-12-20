@@ -1,0 +1,5 @@
+#define MY_SSID "<your-network>"
+#define SSID_PSW "<your-password>"
+#define OTA_PSW "HOotaIdentifier"
+#define mqtt_user "<mqtt-user>"
+#define mqtt_password "<mqtt-password>"
