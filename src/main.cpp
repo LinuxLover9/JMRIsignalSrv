@@ -216,7 +216,7 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
-  /**/
+  
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -240,10 +240,10 @@ void loop() {
   now = millis();
 
   // stats
-  cycleCnt++;                       // increase count for every loop
+  cycleCnt++;                                                      // increase count for every loop
   if ((now - cycleStart) > cyclePeriod){
     cycleStart = now;
-    cycleStats += cycleCnt/(cyclePeriod/1000); // how many cycles did we per second
+    cycleStats += cycleCnt/(cyclePeriod/1000);                     // how many cycles did we per second
     cycleCnt = 0;
   }
   ArduinoOTA.handle();
@@ -252,12 +252,12 @@ void loop() {
   if (!client.connected()) {
     if ((now - lastReconnectAttempt) > 5000) {
       lastReconnectAttempt = now;
-      if (reconnect()) {            // Attempt to reconnect
+      if (reconnect()) {                                           // Attempt to reconnect
         lastReconnectAttempt = 0;
       }
     }
   } else {
-    client.loop();                  // Client connected
+    client.loop();                                                 // Client connected
   }
 
   // light processing
@@ -269,7 +269,7 @@ void loop() {
     internalCycle--;
     if (internalCycle < 0){
       internalCycle = dimBlue;
-      digitalWrite(LED_BUILTIN, LOW);   // flash the build-in LED with this rate
+      digitalWrite(LED_BUILTIN, LOW);                             // flash the build-in LED with this rate
     } else digitalWrite(LED_BUILTIN, HIGH);
   }
 
@@ -284,7 +284,7 @@ void loop() {
     Serial.println("");
   }
 
-  setGreen = isGreen(&yellowCycle);                                           // do we show green or red?
+  setGreen = isGreen(&yellowCycle);                               // do we show green or red?
 
   for(int s=0; s<numSignalHeads; s++){                            // process for every signal head
     myPins = SignalHead[s].pin << (s*2);                          // get from aspect
@@ -338,18 +338,8 @@ void loop() {
           Serial.println();
         }
     }
-
     outherPins = 0xFF ^ mask;                                     // mask for pins to retain
     signalPins = (signalPins & outherPins) | myPins ;             // insert pin states for current head
-    /* / debug
-    if (DEBUG){
-      Serial.print(" ");
-      printBinary(myPins);
-      Serial.print(" ");
-      printBinary(signalPins);
-      Serial.println();
-    }
-    /**/
   }
   digitalWrite(latchPin, LOW);
   shiftOut(dataPin, clockPin, MSBFIRST, signalPins);              // finally we write to shift register
@@ -382,7 +372,7 @@ void loop() {
 // =============================================================================== //
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");          // show what we received
+  Serial.print("Message arrived [");                              // show what we received
   Serial.print(topic);
   Serial.print("] '");
   String pl ="";
@@ -393,12 +383,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     pl += (char)payload[i];
   }
   Serial.println("'");
-  for(int s=0; s<numSignalHeads; s++){                // do we receive a topic?
+  for(int s=0; s<numSignalHeads; s++){                             // do we receive a topic?
     String topicPub = topicPrefix;
     topicPub += SignalHead[s].name;
     String topicStr = topic;
     int in = topicStr.indexOf(SignalHead[s].name);
-    int isSet = topicStr.indexOf("set");              // is it a set command?
+    int isSet = topicStr.indexOf("set");                           // is it a set command?
     if ( in > -1){
       // payload OFF only for flashing and only when the aspect is changing
       if ((pl.compareTo("OFF") == 0) || (topicStr.indexOf("flashing") > -1)){
@@ -425,7 +415,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
         }
       } else
       if ( isSet > -1 ){
-        if (pl.equalsIgnoreCase("GREEN") || (topicStr.indexOf("green") >-1)){            // did we receive green aspect?
+        if (pl.equalsIgnoreCase("GREEN") || (topicStr.indexOf("green") >-1)){  // did we receive green aspect?
           SignalHead[s].aspect = "GREEN";
           SignalHead[s].targetAspect = "GREEN";
           SignalHead[s].flash = false;
@@ -494,7 +484,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
         }
         if (SignalHead[s].flash) SignalHead[s].flashingAspect = SignalHead[s].targetAspect;
 
-      } else if (pl.equalsIgnoreCase("?")){           // did we receive a head query?
+      } else if (pl.equalsIgnoreCase("?")){                                    // did we receive a head query?
         client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
       } else if (topicPub.compareTo(topic) == 0){
         // do nothing with our own ack message
