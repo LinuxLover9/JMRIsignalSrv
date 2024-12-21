@@ -504,8 +504,7 @@ boolean reconnect() {
   String clientId = myHostname;
   Serial.println(myHostname);
   // Attempt to connect
-  // if (client.connect(clientId.c_str(),"butler","Mybutl3r")) {
-  if (client.connect(clientId.c_str(),"butler","Mybutl3r")) {
+  if (client.connect(clientId.c_str(),MQTT_USER,MQTT_PASSWORD)) {
     Serial.println("connected");
 
     // Once connected, publish an announcement...
@@ -529,19 +528,19 @@ String utcTime() {
   Serial.print("NTP time: ");
   Serial.println(time(&now_t));
   localtime_r(&now_t, &tm);           // update the structure tm with the current time
-  utc += tm.tm_year + 1900;  // years since 1900
+  utc += tm.tm_year + 1900;           // years since 1900
   utc += "-";
-  utc += tm.tm_mon + 1;      // January = 0 (!)
+  utc += tm.tm_mon + 1;               // January = 0 (!)
   utc += "-";
-  utc += tm.tm_mday;         // day of month
+  utc += tm.tm_mday;                  // day of month
   utc += " ";
-  utc += tm.tm_hour;         // hours since midnight  0-23
+  utc += tm.tm_hour;                  // hours since midnight  0-23
   utc += ":";
-  utc += tm.tm_min;          // minutes after the hour  0-59
+  utc += tm.tm_min;                    // minutes after the hour  0-59
   utc += ":";
-  utc += tm.tm_sec;          // seconds after the minute  0-61*
+  utc += tm.tm_sec;                    // seconds after the minute  0-61*
   utc += " ";
-  if (tm.tm_isdst == 1)             // Daylight Saving Time flag
+  if (tm.tm_isdst == 1)                // Daylight Saving Time flag
     utc += "EDT";
   else
     utc += "EST";
@@ -555,10 +554,10 @@ void showTime(){
 
 // when is green or red for yellow mix
 boolean isGreen(uint8_t *yellowCycle){          // do we need to show green
-  int bit7 = (*yellowCycle & B10000000)/128; // get top bit of pattern
-  *yellowCycle = *yellowCycle << 1;           // cycle all bits
-  *yellowCycle = *yellowCycle | bit7;         // add bit to low end of the byte
-  return(bit7 == 1);                        // if the bit is a 1 then it's green
+  int bit7 = (*yellowCycle & B10000000)/128;    // get top bit of pattern
+  *yellowCycle = *yellowCycle << 1;             // cycle all bits
+  *yellowCycle = *yellowCycle | bit7;           // add bit to low end of the byte
+  return(bit7 == 1);                            // if the bit is a 1 then it's green
 }
 
 
