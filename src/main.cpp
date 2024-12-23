@@ -16,6 +16,7 @@
              Now we support the following messages
              toppic: JMRI/signal/light/set/<light-n>/{green|red|yellow|flashing}
              message: ON|OFF
+  2024-12-23 reworking the dimming logic
 */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -30,8 +31,8 @@
 
 // ============================== GeneralDefinitions ============================ //
 const char* myHostname ="HOsrv01";  // device identifier
-const char* version = "241219";     // version is by date
-#define DOnDEBUG
+const char* version = "241223";     // version is by date
+#define DOnotDEBUG
 #if defined DODEBUG
 const boolean DEBUG = true;        // debugging variable
 #else
@@ -152,7 +153,7 @@ tm tm;                              // the structure tm holds time information i
 #define mqtt_port 41883
 // reconnect every 5 seconds
 long lastReconnectAttempt = 0;
-long lastPublish = 0;               // variale to keep track of the last publish message
+long nextPublish = 0;               // variale to keep track of the last publish message
 #define publish_delay 600000        // 10 min between publishings
 char* topicPrefix = (char*) "JMRI/signal/"; // topic prefix for MQTT communication
 String message ="";
@@ -274,17 +275,6 @@ void loop() {
     } else digitalWrite(LED_BUILTIN, HIGH);
   }
 
-  if(DEBUG) {
-    printBinary(internalCycle);
-    Serial.print("-c-");
-    if (internalCycle == dimBlue) Serial.print(1);
-    else Serial.print(0);
-    Serial.print("-f-");
-    if (flashOn) Serial.print(1);
-    else Serial.print(0);
-    Serial.println("");
-  }
-
   setGreen = isGreen(&yellowCycle);                               // do we show green or red?
 
   for(int s=0; s<numSignalHeads; s++){                            // process for every signal head
@@ -298,11 +288,12 @@ void loop() {
     }
 
     if(SignalHead[s].flash) {                                     // do we need to flash?
-      if(flashOn) SignalHead[s].targetAspect = SignalHead[s].flashingAspect;
+      if(flashOn) SignalHead[s].targetAspect = SignalHead[s].aspect;
       else SignalHead[s].targetAspect = "DARK";
     }
 
-    if (SignalHead[s].currentAspect.compareTo(SignalHead[s].targetAspect) != 0){ // do we need to dim?
+    if ((SignalHead[s].currentAspect.compareTo(SignalHead[s].aspect) != 0) ||
+        (SignalHead[s].currentAspect.compareTo(SignalHead[s].targetAspect) != 0)){ // do we need to dim?
       SignalHead[s].dimIndex++;
       if (SignalHead[s].dimIndex > 7) SignalHead[s].dimIndex=0;
       if ((SignalHead[s].dimPattern & (1 << SignalHead[s].dimIndex)) == 0) myPins = B11 << (s*2); // dimming
@@ -312,27 +303,30 @@ void loop() {
         if ((SignalHead[s].currentAspect.compareTo("DARK") == 0) & (SignalHead[s].targetAspect.compareTo("DARK") != 0)){  // we need to brighten
           SignalHead[s].dimPattern = SignalHead[s].dimPattern*2 + 1;
           if (SignalHead[s].targetAspect.compareTo("GREEN")) SignalHead[s].pin = 1;
-          else SignalHead[s].pin = 2;
+          else if (SignalHead[s].targetAspect.compareTo("RED")) SignalHead[s].pin = 2;
           myPins = SignalHead[s].pin << (s*2);                   // enable high pin
 
-          if (SignalHead[s].dimPattern == 255){                   // were dome
+          if (SignalHead[s].dimPattern == 255){                   // were done
             SignalHead[s].currentAspect = SignalHead[s].targetAspect;
           }
         } else {                                                  // we need to darken
           SignalHead[s].dimPattern = SignalHead[s].dimPattern >> 1;
-          if (SignalHead[s].dimPattern == 0){                     // were dome
+          if (SignalHead[s].dimPattern <= 0){                     // were done
             SignalHead[s].currentAspect = "DARK";                 // switch to brightning
             SignalHead[s].targetAspect = SignalHead[s].aspect;
             myPins = B11 << (s*2);                                // dark for both pins high
           }
         }
       }
-        if (DEBUG && (s==9)) {
+        if (DEBUG && (s==3)) {
           Serial.print(SignalHead[s].currentAspect);
           Serial.print(">");
           Serial.print(SignalHead[s].targetAspect);
           Serial.print(" ");
           printBinary(SignalHead[s].dimPattern);
+          Serial.print(" ");
+          if (SignalHead[s].flash) Serial.print("F");
+          else Serial.print("_");
           Serial.print(" ");
           printBinary(myPins);
           Serial.print(" ");
@@ -349,8 +343,8 @@ void loop() {
   digitalWrite(latchPin, HIGH);
 
   // MQTT publish state
-  if ((now - lastPublish) > publish_delay){                       // is it time to publish?
-    lastPublish = now;
+  if ((now > nextPublish) ){                       // is it time to publish?
+    nextPublish = now + publish_delay;
     String payload = "";
     payload = utcTime();                                          // publish the current time
     String level = topicPrefix;
@@ -375,122 +369,104 @@ void loop() {
 // =============================================================================== //
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");                              // show what we received
-  Serial.print(topic);
-  Serial.print("] '");
+  if (DEBUG){
+    Serial.print("Message arrived [");                              // show what we received
+    Serial.print(topic);
+    Serial.print("] '");
+  }
   String pl ="";
   String tmpAspect;
 
   for (unsigned int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+    if (DEBUG) Serial.print((char)payload[i]);
     pl += (char)payload[i];
   }
-  Serial.println("'");
+  if (DEBUG) Serial.println("'");
   for(int s=0; s<numSignalHeads; s++){                             // do we receive a topic?
     String topicPub = topicPrefix;
     topicPub += SignalHead[s].name;
     String topicStr = topic;
-    int in = topicStr.indexOf(SignalHead[s].name);
-    int isSet = topicStr.indexOf("set");                           // is it a set command?
-    if ( in > -1){
-      // payload OFF only for flashing and only when the aspect is changing
-      if ((pl.compareTo("OFF") == 0) || (topicStr.indexOf("flashing") > -1)){
-        if ((pl.compareTo("OFF") == 0) && (topicStr.indexOf("flashing") > -1) && SignalHead[s].flash ){
-          tmpAspect = SignalHead[s].aspect.substring(8);
-          // publishDebug(tmpAspect);
-          SignalHead[s].aspect = tmpAspect;
-          SignalHead[s].targetAspect = tmpAspect;
-          SignalHead[s].flash = false;
-          SignalHead[s].dimPattern = 255;
-          // publishAspect(s);
-          publishFlashing(s);
-        } else if ((pl.compareTo("ON") == 0) && !SignalHead[s].flash ){
-          SignalHead[s].targetAspect = SignalHead[s].aspect;
-          tmpAspect = "FLASHING";
-          tmpAspect += SignalHead[s].aspect;
-          // publishDebug(tmpAspect);
-          SignalHead[s].aspect = tmpAspect;
-          SignalHead[s].flash = true;
-          SignalHead[s].dimPattern = 255;
-          SignalHead[s].flashingAspect = SignalHead[s].targetAspect;
-          // publishAspect(s);
-          publishFlashing(s);
-        }
-      } else
-      if ( isSet > -1 ){
-        if (pl.equalsIgnoreCase("GREEN") || (topicStr.indexOf("green") >-1)){  // did we receive green aspect?
-          SignalHead[s].aspect = "GREEN";
-          SignalHead[s].targetAspect = "DARK";
-          SignalHead[s].flash = false;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-            publishAspect(s);
+    if ( topicStr.indexOf(SignalHead[s].name) > -1){
+      if ( topicStr.indexOf("set") > -1 ){                                      // did we receive a set command?
+        // payload OFF only for flashing and only when the aspect is changing
+        if (topicStr.indexOf("flashing") > -1){
+          if (topicStr.indexOf("flashing") > -1) {
+            if (DEBUG) publishAspect(s);
+            if (pl.compareTo("OFF") == 0) {
+              // tmpAspect = SignalHead[s].aspect.substring(8);
+              // publishDebug(tmpAspect);
+              // SignalHead[s].aspect = tmpAspect;
+              // SignalHead[s].targetAspect = tmpAspect;
+              SignalHead[s].flash = false;
+              // SignalHead[s].dimPattern = 255;
+              // publishAspect(s);
+              publishFlashing(s);
+            } else {
+              // SignalHead[s].targetAspect = SignalHead[s].aspect;
+              // tmpAspect = "FLASHING";
+              // tmpAspect += SignalHead[s].aspect;
+              // publishDebug(tmpAspect);
+              // SignalHead[s].aspect = tmpAspect;
+              SignalHead[s].flash = true;
+              // SignalHead[s].dimPattern = 255;
+              // SignalHead[s].flashingAspect = SignalHead[s].targetAspect;
+              // publishAspect(s);
+              publishFlashing(s);
+            }
           }
-        } else if (pl.equalsIgnoreCase("RED") || (topicStr.indexOf("red") >-1)){
-          SignalHead[s].aspect = "RED";
-          SignalHead[s].targetAspect= "DARK";
-          SignalHead[s].flash = false;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-            publishAspect(s);
+        } else {
+          if (DEBUG){
+            message = "reveived ON command:" ;
+            message += topicStr;
+            message += "=";
+            message += pl;
+            publishDebug(message);
           }
-        } else if (pl.equalsIgnoreCase("YELLOW") || (topicStr.indexOf("yellow") >-1)){
-          SignalHead[s].aspect = "YELLOW";
-          SignalHead[s].targetAspect= "DARK";
-          SignalHead[s].flash = false;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-            publishAspect(s);
+          if (pl.equalsIgnoreCase("GREEN") || ((topicStr.indexOf("green") >-1)&& (pl.compareTo("ON") == 0))){   // did we receive green aspect?
+            SignalHead[s].aspect = "GREEN";
+            SignalHead[s].targetAspect = "DARK";
+            SignalHead[s].flash = false;
+          } else if (pl.equalsIgnoreCase("RED") || ((topicStr.indexOf("red") >-1) && (pl.compareTo("ON") == 0)) ){
+            SignalHead[s].aspect = "RED";
+            SignalHead[s].targetAspect= "DARK";
+            SignalHead[s].flash = false;
+          } else if (pl.equalsIgnoreCase("YELLOW") || ((topicStr.indexOf("yellow") >-1) && (pl.compareTo("ON") == 0)) ){
+            SignalHead[s].aspect = "YELLOW";
+            SignalHead[s].targetAspect= "DARK";
+            SignalHead[s].flash = false;
+          } else if (pl.equalsIgnoreCase("DARK")){
+            SignalHead[s].aspect = "DARK";
+            SignalHead[s].targetAspect = "DARK";
+            SignalHead[s].flash = false;
+          } else if (pl.equalsIgnoreCase("FLASHINGGREEN")){
+            SignalHead[s].aspect = "GREEN";
+            SignalHead[s].targetAspect= "DARK";
+            SignalHead[s].flash = true;
+          } else if (pl.equalsIgnoreCase("FLASHINGRED")){
+            SignalHead[s].aspect = "RED";
+            SignalHead[s].targetAspect= "DARK";
+            SignalHead[s].flash = true;
+          } else if (pl.equalsIgnoreCase("FLASHINGYELLOW")){
+            SignalHead[s].aspect = "YELLOW";
+            SignalHead[s].targetAspect= "DARK";
+            SignalHead[s].flash = true;
           }
-        } else if (pl.equalsIgnoreCase("DARK")){
-          SignalHead[s].aspect = "DARK";
-          SignalHead[s].targetAspect = "DARK";
-          SignalHead[s].flash = false;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-            publishAspect(s);
-          }
-        } else if (pl.equalsIgnoreCase("FLASHINGGREEN")){
-          SignalHead[s].aspect = "GREEN";
-          SignalHead[s].targetAspect= "DARK";
-          SignalHead[s].flash = true;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-          }
-        } else if (pl.equalsIgnoreCase("FLASHINGRED")){
-          SignalHead[s].aspect = "RED";
-          SignalHead[s].targetAspect= "DARK";
-          SignalHead[s].flash = true;
-          SignalHead[s].dimPattern = 255;
-          if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-            publishAspect(s);
-          }
-        } else if (pl.equalsIgnoreCase("FLASHINGYELLOW")){
-          SignalHead[s].aspect = "YELLOW";
-          SignalHead[s].targetAspect= "DARK";
-          SignalHead[s].flash = true;
-          SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
             client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         }
-        if (SignalHead[s].currentAspect.compareTo("DARK") == 0){
-          SignalHead[s].dimPattern = 0;
-        }
-        if (SignalHead[s].flash) SignalHead[s].flashingAspect = SignalHead[s].targetAspect;
-
-      } else if (pl.equalsIgnoreCase("?")){                                    // did we receive a head query
+      } else if (pl.compareTo("?") == 0){                                    // did we receive a head query
+        publishDebug("we're publishing on equest:");
         client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
-      } else if (topicPub.compareTo(topic) == 0){
-        // do nothing with our own ack message
-      }else Serial.println("Command received, that I don't understand!");
+        publishAspect(s);
+      }else if (DEBUG) {
+        message = "Command received, that I don't understand! : ";
+        message += topicStr;
+        message += "=";
+        message += pl;
+        publishDebug(message);
+      }
     }
   }
 } // end callback
@@ -607,20 +583,17 @@ void publishFlashing(int s){
   pubTopic += "light/";
   pubTopic += SignalHead[s].name;
   pubTopic += "/";
-  String topicPub = pubTopic;
+  pubTopic += "flashing";
   String pubMsg = "OFF";
-  topicPub = pubTopic;
-  pubMsg = "OFF";
-  topicPub += "flashing";
-  if (SignalHead[s].aspect.indexOf("FLASHING") > -1 ) pubMsg = "ON";
-  client.publish((char*) topicPub.c_str(), (char*) pubMsg.c_str());
+  if (SignalHead[s].flash) pubMsg = "ON";
+  client.publish((char*) pubTopic.c_str(), (char*) pubMsg.c_str());
 }
 
 
 void publishDebug(String message){
   String topic = topicPrefix;
   topic += "DEBUG";
-  client.publish((char*)topic.c_str(), (char*)message.c_str());
+  if (DEBUG) client.publish((char*)topic.c_str(), (char*)message.c_str());
 }
 
 
