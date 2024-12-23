@@ -339,6 +339,7 @@ void loop() {
           Serial.println();
         }
     }
+
     outherPins = 0xFF ^ mask;                                     // mask for pins to retain
     signalPins = (signalPins & outherPins) | myPins ;             // insert pin states for current head
   }
