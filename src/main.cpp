@@ -10,13 +10,15 @@
   and the other low, there is 5 VDC between the pins. Depending on which pin is pulled high either
   green or red LED will light up.
 
-  2024-12-16 adding incandessent simulation.
-  2024-12-19 adding MQTT support for JMRI commands
+  2024-12-16 Adding incandessent simulation.
+  2024-12-19 Adding MQTT support for JMRI commands
              JMRI only knows lights to go ON /OFF
              Now we support the following messages
-             toppic: JMRI/signal/light/set/<light-n>/{green|red|yellow|flashing}
-             message: ON|OFF
-  2024-12-23 reworking the dimming logic
+             -t JMRI/signal/light/set/<light-n>/{green|red|yellow|flashing}
+             -m ON|OFF
+  2024-12-23 Reworking the dimming logic
+             Adding server command to display the light head names:
+             -t JMRI/signal/< myHostname > -m heads
 */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -111,6 +113,7 @@ void publishAspect(int s);
 void publishFlashing(int s);
 void publishDebug(String message);
 String trueAspect(signal signalHead);
+void serverCommands(String topicStr, String pl);
 
 // ===================================== OTA ==================================== //
 //
@@ -376,16 +379,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   String pl ="";
   String tmpAspect;
+  String topicStr = topic;
 
   for (unsigned int i = 0; i < length; i++) {
     if (DEBUG) Serial.print((char)payload[i]);
     pl += (char)payload[i];
   }
   if (DEBUG) Serial.println("'");
-  for(int s=0; s<numSignalHeads; s++){                             // do we receive a topic?
+
+  if (topicStr.indexOf(myHostname) > -1) serverCommands(topicStr, pl);  // do we have server commands to process?
+  else for(int s=0; s<numSignalHeads; s++){                             // do we receive a topic?
     String topicPub = topicPrefix;
     topicPub += SignalHead[s].name;
-    String topicStr = topic;
     if ( topicStr.indexOf(SignalHead[s].name) > -1){
       if ( topicStr.indexOf("set") > -1 ){                                      // did we receive a set command?
         // payload OFF only for flashing and only when the aspect is changing
@@ -602,4 +607,26 @@ String trueAspect(signal signalHead){
   if (signalHead.flash) ret = "FLASHING";
   ret += signalHead.aspect;
   return(ret);
+}
+
+
+
+void serverCommands(String topicStr, String pl){ // do we have server commands to process?
+  String message = "";
+  String pubTopic = topicPrefix;
+  pubTopic += myHostname;
+  pubTopic += "/";
+
+  if(pl.compareTo("heads") == 0){           // for all heads publush their name
+    pubTopic += "heads";
+    for (int s=0; s<numSignalHeads; s++){
+      message += (String) s;
+      message += ":";
+      message += SignalHead[s].name;
+      message += ",";
+    }
+    message += " total heads:";
+    message += (String) numSignalHeads;
+    client.publish(topicStr.c_str(), message.c_str());
+  }
 }
