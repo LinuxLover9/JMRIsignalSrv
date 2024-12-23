@@ -109,6 +109,7 @@ void printBinary(byte inByte);
 void publishAspect(int s);
 void publishFlashing(int s);
 void publishDebug(String message);
+String trueAspect(signal signalHead);
 
 // ===================================== OTA ==================================== //
 //
@@ -423,7 +424,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])t.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("RED") || (topicStr.indexOf("red") >-1)){
@@ -450,7 +451,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])t.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("FLASHINGGREEN")){
@@ -459,7 +460,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
           SignalHead[s].flash = true;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
           }
         } else if (pl.equalsIgnoreCase("FLASHINGRED")){
           SignalHead[s].aspect = "RED";
