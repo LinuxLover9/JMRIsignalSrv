@@ -321,6 +321,7 @@ void loop() {
           SignalHead[s].dimPattern = SignalHead[s].dimPattern >> 1;
           if (SignalHead[s].dimPattern == 0){                     // were dome
             SignalHead[s].currentAspect = "DARK";                 // switch to brightning
+            SignalHead[s].targetAspect = SignalHead[s].aspect;
             myPins = B11 << (s*2);                                // dark for both pins high
           }
         }
@@ -417,29 +418,29 @@ void callback(char* topic, byte* payload, unsigned int length) {
       if ( isSet > -1 ){
         if (pl.equalsIgnoreCase("GREEN") || (topicStr.indexOf("green") >-1)){  // did we receive green aspect?
           SignalHead[s].aspect = "GREEN";
-          SignalHead[s].targetAspect = "GREEN";
+          SignalHead[s].targetAspect = "DARK";
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])t.c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("RED") || (topicStr.indexOf("red") >-1)){
           SignalHead[s].aspect = "RED";
-          SignalHead[s].targetAspect= "RED";
+          SignalHead[s].targetAspect= "DARK";
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("YELLOW") || (topicStr.indexOf("yellow") >-1)){
           SignalHead[s].aspect = "YELLOW";
-          SignalHead[s].targetAspect= "YELLOW";
+          SignalHead[s].targetAspect= "DARK";
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("DARK")){
@@ -448,34 +449,33 @@ void callback(char* topic, byte* payload, unsigned int length) {
           SignalHead[s].flash = false;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])t.c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("FLASHINGGREEN")){
-          SignalHead[s].aspect = "FLASHINGGREEN";
-          SignalHead[s].targetAspect= "GREEN";
+          SignalHead[s].aspect = "GREEN";
+          SignalHead[s].targetAspect= "DARK";
           SignalHead[s].flash = true;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
-            publishAspect(s);
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s])
           }
         } else if (pl.equalsIgnoreCase("FLASHINGRED")){
-          SignalHead[s].aspect = "FLASHINGRED";
-          SignalHead[s].targetAspect= "RED";
+          SignalHead[s].aspect = "RED";
+          SignalHead[s].targetAspect= "DARK";
           SignalHead[s].flash = true;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         } else if (pl.equalsIgnoreCase("FLASHINGYELLOW")){
-          SignalHead[s].aspect = "FLASHINGYELLOW";
-          SignalHead[s].targetAspect= "YELLOW";
+          SignalHead[s].aspect = "YELLOW";
+          SignalHead[s].targetAspect= "DARK";
           SignalHead[s].flash = true;
           SignalHead[s].dimPattern = 255;
           if (SignalHead[s].aspect.compareTo(SignalHead[s].currentAspect) != 0){
-            client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+            client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
             publishAspect(s);
           }
         }
@@ -484,8 +484,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
         }
         if (SignalHead[s].flash) SignalHead[s].flashingAspect = SignalHead[s].targetAspect;
 
-      } else if (pl.equalsIgnoreCase("?")){                                    // did we receive a head query?
-        client.publish(topicPub.c_str(), SignalHead[s].aspect.c_str());
+      } else if (pl.equalsIgnoreCase("?")){                                    // did we receive a head query
+        client.publish(topicPub.c_str(), trueAspect(SignalHead[s]).c_str());
       } else if (topicPub.compareTo(topic) == 0){
         // do nothing with our own ack message
       }else Serial.println("Command received, that I don't understand!");
@@ -619,4 +619,12 @@ void publishDebug(String message){
   String topic = topicPrefix;
   topic += "DEBUG";
   client.publish((char*)topic.c_str(), (char*)message.c_str());
+}
+
+
+String trueAspect(signal signalHead){
+  String ret ="";
+  if (signalHead.flash) ret = "FLASHING";
+  ret += signalHead.aspect;
+  return(ret);
 }
