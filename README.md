@@ -1,9 +1,9 @@
-# ESP8266 signal server for jmri
+# ESP8266 signal server for JMRI
 <div style="text-align: right"> <sup>Dec 2024</sub><br> </div>
 This IOT server is build around an ESP8266 NodeMCU and a Serial In Parallel Out (SIPO) shift register to drive
 Green/Red bi-polar LEDs for a model train layout that is controlled by
-[jmri](https://jmri.org "The JMRI project is building tools for model railroad computer control.").
-<a href="https://jmri.org" title="The JMRI project is building tools for model railroad computer control.">jmri</a>
+[JMRI](https://jmri.org "The JMRI project is building tools for model railroad computer control.").
+<a href="https://jmri.org" title="The JMRI project is building tools for model railroad computer control.">JMRI</a>
 <br>
 <br>
 The idea is by using a number of shift registers a variable number of signal lights can be controlled.
@@ -25,7 +25,7 @@ i.e. For turnout "Acton-main-A" to flash red would need commands:
 For now the configuration is done within the sketch code.
 Since it's not expected to change much, I did not invest time in a web interface. And updates can be done Over The Air, so no need to disassemble the setup for updates.
 
-After learning that jmri only can turn lights ON or OFF, I've added the following commands:
+After learning that JMRI only can turn lights ON or OFF, I've added the following commands:
 ```
 -t JMRI/signal/light/set/< light-n >< -aspect > -m ON | OFF
 
