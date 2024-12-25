@@ -1,8 +1,10 @@
 # ESP8266 signal server for jmri
 <div style="text-align: right"> <sup>Dec 2024</sub><br> </div>
-This IOT server is build around an ESP8266 NodeMCU and a Serial In Parallel Out (SIPO) shift register to drive Green/Red bi-polar LEDs
-for a model train layout that is controlled by [jmri](jmri.org).
-
+This IOT server is build around an ESP8266 NodeMCU and a Serial In Parallel Out (SIPO) shift register to drive
+Green/Red bi-polar LEDs for a model train layout that is controlled by
+[jmri](https://jmri.org "The JMRI project is building tools for model railroad computer control.").
+<br>
+<br>
 The idea is by using a number of shift registers a variable number of signal lights can be controlled.
 And with the use of bi-polar LEDs, the aspects green, yellow and red can be displayed prototypically with one head.
 Also it's trying to mimic the dimming and brightening of incandescent light bulbs, to allow for older time period deployments.
@@ -32,5 +34,4 @@ i.e. For turnout "Acton-main-A" to flash red would now take two commands:
 -t JMRI/signal/light/set/Acton-main-A-red -m ON
 -t JMRI/signal/light/set/Acton-main-A-flashing -m ON
 ```
-
 
