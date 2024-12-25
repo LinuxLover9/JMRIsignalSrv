@@ -3,6 +3,7 @@
 This IOT server is build around an ESP8266 NodeMCU and a Serial In Parallel Out (SIPO) shift register to drive
 Green/Red bi-polar LEDs for a model train layout that is controlled by
 [jmri](https://jmri.org "The JMRI project is building tools for model railroad computer control.").
+<a href="https://jmri.org" title="The JMRI project is building tools for model railroad computer control.">jmri</a>
 <br>
 <br>
 The idea is by using a number of shift registers a variable number of signal lights can be controlled.
