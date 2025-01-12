@@ -36,3 +36,6 @@ i.e. For turnout "Acton-main-A" to flash red would now take two commands:
 -t JMRI/signal/light/set/Acton-main-A-flashing -m ON
 ```
 
+---
+Schematic for connecting the shift-register
+![schematic](JMRIsignalSrv.png)
